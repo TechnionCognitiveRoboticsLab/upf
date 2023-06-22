@@ -200,14 +200,14 @@ class SocialLawRobustnessChecker(engines.engine.Engine, mixins.OneshotPlannerMix
         mac = MultiAgentProblemCentralizer()
         cresult = mac.compile(problem)        
         simulator = UPSequentialSimulator(cresult.problem)
-        current_state = UPState(cresult.problem.initial_values)
+        current_state = simulator.get_initial_state()
 
         plan = SequentialPlan([])
 
         active_agents = problem.agents.copy()
         active_agents_next = []
                 
-        #TODO: look at plan validator again
+        #TODO: look at plan validator again  
         while len(active_agents) > 0:
             action_performed = False
             for agent in active_agents:
@@ -217,18 +217,12 @@ class SocialLawRobustnessChecker(engines.engine.Engine, mixins.OneshotPlannerMix
                     action = cresult.problem.action(agent.name + "__" + ai.action.name)
                     assert isinstance(action, unified_planning.model.InstantaneousAction)
 
-                    applicable = True
-                    events = simulator.get_events(action, ai.actual_parameters)
-                    for event in events:
-                        if not simulator.is_applicable(event, current_state):
-                            applicable = False
-                            break
+                    applicable = simulator.is_applicable(current_state, action, ai.actual_parameters)
                     
                     if applicable:
                         plan.actions.append(ActionInstance(ai.action, ai.actual_parameters, agent))
                         action_performed = True
-                        for event in events:                
-                            current_state = simulator.apply_unsafe(event, current_state)
+                        current_state = simulator.apply(current_state, action, ai.actual_parameters)
                         current_step[agent] = current_step[agent] + 1
             if not action_performed and len(active_agents_next) > 0:
                 # deadlock occurred
