@@ -213,10 +213,10 @@ def get_intersection_problem(
         arrive = DurativeAction('arrive', l=loc)
         arrive.set_fixed_duration(1)        
         l = arrive.parameter('l')
-        
+
         arrive.add_condition(StartTiming(),start(l))
         arrive.add_condition(StartTiming(),not_arrived())
-        arrive.add_condition(OpenDurationInterval(StartTiming(), EndTiming()),free(l))
+        arrive.add_condition(OpenTimeInterval(StartTiming(), EndTiming()),free(l))
         arrive.add_effect(EndTiming(), at(l), True)
         arrive.add_effect(EndTiming(), free(l), False)
         arrive.add_effect(EndTiming(), arrived(), True)        
@@ -264,7 +264,7 @@ def get_intersection_problem(
         d = drive.parameter('d')        
         drive.add_condition(StartTiming(), at(l1))
         if wait_drive:        
-            drive.add_condition(ClosedDurationInterval(StartTiming(), EndTiming()), free(l2))
+            drive.add_condition(ClosedTimeInterval(StartTiming(), EndTiming()), free(l2))
         drive.add_condition(StartTiming(), traveldirection(d))
         drive.add_condition(EndTiming(), connected(l1,l2,d))        
         drive.add_effect(EndTiming(), at(l2),True)
@@ -274,7 +274,7 @@ def get_intersection_problem(
         if len(yields_list) > 0:
             ly = drive.parameter('ly')
             drive.add_condition(StartTiming(), yieldsto(l1,ly))
-            drive.add_condition(ClosedDurationInterval(StartTiming(), EndTiming()), free(ly))
+            drive.add_condition(ClosedTimeInterval(StartTiming(), EndTiming()), free(ly))
 
     else:
         if len(yields_list) > 0:

@@ -647,7 +647,7 @@ class DurativeActionRobustnessVerifier(RobustnessVerifier):
 
         new_action = DurativeAction(prefix + "_" + agent.name + "_" + action.name, _parameters=d)     
         new_action.set_duration_constraint(action.duration)
-        #new_action.add_condition(ClosedDurationInterval(StartTiming(), EndTiming()), self.act_pred)   
+        #new_action.add_condition(ClosedTimeInterval(StartTiming(), EndTiming()), self.act_pred)   
 
         # TODO: can probably do this better with a substitution walker
         for timing in action.conditions.keys():
@@ -726,7 +726,7 @@ class DurativeActionRobustnessVerifier(RobustnessVerifier):
 
                 a_s = self.create_action_copy(problem, agent, action, "s")
                 a_s.add_condition(StartTiming(), Not(waiting(self.get_agent_obj(agent))))
-                a_s.add_condition(ClosedDurationInterval(StartTiming(), EndTiming()), act())   
+                a_s.add_condition(ClosedTimeInterval(StartTiming(), EndTiming()), act())   
                 # Conditions/Effects on global copy
                 for timing in action.conditions.keys():
                     for fact in action.conditions[timing]:
@@ -753,7 +753,7 @@ class DurativeActionRobustnessVerifier(RobustnessVerifier):
                 for effect in action.effects.get(EndTiming(), []):
                     if effect.value.is_true():
                         for ag in problem.agents:
-                            a_s.add_condition(ClosedDurationInterval(StartTiming(), EndTiming()), Not(self.fsub.substitute(effect.fluent, waiting_fluent_map[ag], agent)))
+                            a_s.add_condition(ClosedTimeInterval(StartTiming(), EndTiming()), Not(self.fsub.substitute(effect.fluent, waiting_fluent_map[ag], agent)))
                 new_problem.add_action(a_s)
                 new_to_old[a_s] = action
 
@@ -799,7 +799,7 @@ class DurativeActionRobustnessVerifier(RobustnessVerifier):
                     for c in c_start:
                         a_fend.add_condition(StartTiming(), self.fsub.substitute(c, self.global_fluent_map, agent))
                     for c in c_overall:
-                        a_fend.add_condition(OpenDurationInterval(StartTiming(), EndTiming()), self.fsub.substitute(c, self.global_fluent_map, agent))
+                        a_fend.add_condition(OpenTimeInterval(StartTiming(), EndTiming()), self.fsub.substitute(c, self.global_fluent_map, agent))
                     a_fend.add_condition(StartTiming(), Not(waiting(self.get_agent_obj(agent))))
                     a_fend.add_condition(EndTiming(), Not(self.fsub.substitute(fact, self.global_fluent_map, agent)))
                     for effect in action.effects.get(StartTiming(), []):
@@ -845,7 +845,7 @@ class DurativeActionRobustnessVerifier(RobustnessVerifier):
                         for c in c_start:
                             a_finvend.add_condition(StartTiming(), self.fsub.substitute(c, self.global_fluent_map, agent))
                         for c in c_overall:
-                            a_finvend.add_condition(OpenDurationInterval(StartTiming(), EndTiming()),
+                            a_finvend.add_condition(OpenTimeInterval(StartTiming(), EndTiming()),
                                                     self.fsub.substitute(c, self.global_fluent_map, agent))
                         for c in c_end:
                             a_finvend.add_condition(EndTiming(), self.fsub.substitute(c, self.global_fluent_map, agent))
@@ -859,7 +859,7 @@ class DurativeActionRobustnessVerifier(RobustnessVerifier):
                                 for ag in problem.agents:
                                     a_finvend.add_condition(StartTiming(),
                                                             Not(self.fsub.substitute(seffect.fluent, waiting_fluent_map[ag], agent)))
-                                    a_finvend.add_condition(OpenDurationInterval(StartTiming(), EndTiming()),
+                                    a_finvend.add_condition(OpenTimeInterval(StartTiming(), EndTiming()),
                                                             Not(self.fsub.substitute(seffect.fluent, waiting_fluent_map[ag], agent)))
                         for seffect in action.effects.get(EndTiming(), []):
                             a_finvend.add_effect(EndTiming(), self.fsub.substitute(seffect.fluent, self.global_fluent_map, agent), seffect.value)
