@@ -590,8 +590,9 @@ class WaitingActionRobustnessVerifier(InstantaneousActionRobustnessVerifier):
 class DurativeActionRobustnessVerifier(RobustnessVerifier):
     '''Robustness verifier class for durative actions:
     this class requires a (multi agent) problem, and creates a temporal planning problem which is unsolvable iff the multi agent problem is not robust.'''
-    def __init__(self):
+    def __init__(self, replace_inv_count_with_bool = True):
         RobustnessVerifier.__init__(self)
+        self.replace_inv_count_with_bool = replace_inv_count_with_bool
     
     @staticmethod
     def supported_kind() -> ProblemKind:
@@ -674,7 +675,10 @@ class DurativeActionRobustnessVerifier(RobustnessVerifier):
             waiting_fluent_map[agent] = FluentMap("w-" + agent.name, default_value=False)
             waiting_fluent_map[agent].add_facts(problem, new_problem)
 
-        inv_count_map = FluentMap("i", default_value=0, override_type=IntType(0))
+        if self.replace_inv_count_with_bool:
+            inv_count_map = FluentMap("i")
+        else:    
+            inv_count_map = FluentMap("i", default_value=0, override_type=IntType(0))
         inv_count_map.add_facts(problem, new_problem)
 
 
@@ -693,26 +697,28 @@ class DurativeActionRobustnessVerifier(RobustnessVerifier):
 
         for agent in problem.agents:
             # Create end_s_i action
-            end_s_action = InstantaneousAction("end_s_" + agent.name)
-            end_s_action.add_precondition(Not(fin(self.get_agent_obj(agent))))
+            end_s_action = DurativeAction("end_s_" + agent.name)
+            end_s_action.set_fixed_duration(0.01)
+            end_s_action.add_condition(StartTiming(), Not(fin(self.get_agent_obj(agent))))
             for g in self.get_agent_goal(problem, agent):
-                end_s_action.add_precondition(self.fsub.substitute(g, self.local_fluent_map[agent], agent))
-                end_s_action.add_precondition(self.fsub.substitute(g, self.global_fluent_map, agent))
-            end_s_action.add_effect(fin(self.get_agent_obj(agent)), True)
-            end_s_action.add_effect(act, False)
+                end_s_action.add_condition(StartTiming(), self.fsub.substitute(g, self.local_fluent_map[agent], agent))
+                end_s_action.add_condition(StartTiming(), self.fsub.substitute(g, self.global_fluent_map, agent))
+            end_s_action.add_effect(StartTiming(), fin(self.get_agent_obj(agent)), True)
+            end_s_action.add_effect(StartTiming(), act, False)
             new_problem.add_action(end_s_action)
             new_to_old[end_s_action] = None
 
             # Create end_f_i action
             for j, gf in enumerate(self.get_agent_goal(problem, agent)):
-                end_f_action = InstantaneousAction("end_f_" + agent.name + "_" + str(j))
-                end_f_action.add_precondition(Not(self.fsub.substitute(gf, self.global_fluent_map, agent)))
-                end_f_action.add_precondition(Not(fin(self.get_agent_obj(agent))))
+                end_f_action = DurativeAction("end_f_" + agent.name + "_" + str(j))
+                end_f_action.set_fixed_duration(0.01)
+                end_f_action.add_condition(StartTiming(), Not(self.fsub.substitute(gf, self.global_fluent_map, agent)))
+                end_f_action.add_condition(StartTiming(), Not(fin(self.get_agent_obj(agent))))
                 for g in self.get_agent_goal(problem, agent):
-                    end_f_action.add_precondition(self.fsub.substitute(g, self.local_fluent_map[agent], agent))
-                end_f_action.add_effect(fin(self.get_agent_obj(agent)), True)
-                end_f_action.add_effect(failure, True)
-                end_f_action.add_effect(act, False)
+                    end_f_action.add_condition(StartTiming(), self.fsub.substitute(g, self.local_fluent_map[agent], agent))
+                end_f_action.add_effect(StartTiming(), fin(self.get_agent_obj(agent)), True)
+                end_f_action.add_effect(StartTiming(), failure, True)
+                end_f_action.add_effect(StartTiming(), act, False)
                 new_problem.add_action(end_f_action)
                 new_to_old[end_f_action] = None
 
@@ -737,14 +743,24 @@ class DurativeActionRobustnessVerifier(RobustnessVerifier):
                         a_s.add_effect(timing, self.fsub.substitute(effect.fluent, self.global_fluent_map, agent), effect.value)
                 # accounting for invariant count
                 for c in c_overall:
-                    a_s.add_increase_effect(StartTiming(), self.fsub.substitute(c, inv_count_map, agent), 1)
-                    a_s.add_decrease_effect(EndTiming(), self.fsub.substitute(c, inv_count_map, agent), 1)
+                    if self.replace_inv_count_with_bool:
+                        a_s.add_effect(StartTiming(), self.fsub.substitute(c, inv_count_map, agent), True)
+                        a_s.add_effect(EndTiming(), self.fsub.substitute(c, inv_count_map, agent), False)
+                    else:
+                        a_s.add_increase_effect(StartTiming(), self.fsub.substitute(c, inv_count_map, agent), 1)
+                        a_s.add_decrease_effect(EndTiming(), self.fsub.substitute(c, inv_count_map, agent), 1)
                 for effect in action.effects.get(StartTiming(), []):
                     if effect.value.is_false():
-                        a_s.add_condition(StartTiming(), Equals(self.fsub.substitute(effect.fluent, inv_count_map, agent), 0))
+                        if self.replace_inv_count_with_bool:
+                            a_s.add_condition(StartTiming(), Not(self.fsub.substitute(effect.fluent, inv_count_map, agent)))
+                        else:
+                            a_s.add_condition(StartTiming(), Equals(self.fsub.substitute(effect.fluent, inv_count_map, agent), 0))
                 for effect in action.effects.get(EndTiming(), []):
                     if effect.value.is_false():
-                        a_s.add_condition(EndTiming(), Equals(self.fsub.substitute(effect.fluent, inv_count_map, agent), 1))
+                        if self.replace_inv_count_with_bool:
+                            a_s.add_condition(EndTiming(), self.fsub.substitute(effect.fluent, inv_count_map, agent))
+                        else:
+                            a_s.add_condition(EndTiming(), Equals(self.fsub.substitute(effect.fluent, inv_count_map, agent), 1))
                 # accouting for other agents waiting
                 for effect in action.effects.get(StartTiming(), []):
                     if effect.value.is_true():
@@ -783,7 +799,10 @@ class DurativeActionRobustnessVerifier(RobustnessVerifier):
                         for effect in action.effects.get(StartTiming(), []):
                             a_finv.add_effect(StartTiming(), self.fsub.substitute(effect.fluent, self.global_fluent_map, agent), effect.value)
                             if effect.value.is_false():
-                                a_finv.add_condition(StartTiming(), Equals(self.fsub.substitute(effect.fluent, inv_count_map, agent), 0))
+                                if self.replace_inv_count_with_bool:
+                                    a_finv.add_condition(StartTiming(), Not(self.fsub.substitute(effect.fluent, inv_count_map, agent)))
+                                else:
+                                    a_finv.add_condition(StartTiming(), Equals(self.fsub.substitute(effect.fluent, inv_count_map, agent), 0))
                             if effect.value.is_true():
                                 for ag in problem.agents:
                                     a_finv.add_condition(StartTiming(),
@@ -805,7 +824,10 @@ class DurativeActionRobustnessVerifier(RobustnessVerifier):
                     for effect in action.effects.get(StartTiming(), []):
                         a_fend.add_effect(StartTiming(), self.fsub.substitute(effect.fluent, self.global_fluent_map, agent), effect.value)
                         if effect.value.is_false():
-                            a_fend.add_condition(StartTiming(), Equals(self.fsub.substitute(effect.fluent, inv_count_map, agent), 0))                                
+                            if self.replace_inv_count_with_bool:
+                                a_fend.add_condition(StartTiming(), Not(self.fsub.substitute(effect.fluent, inv_count_map, agent)))
+                            else:
+                                a_fend.add_condition(StartTiming(), Equals(self.fsub.substitute(effect.fluent, inv_count_map, agent), 0))                                
                         if effect.value.is_true():
                             for agent in problem.agents:
                                 for ag in problem.agents:
@@ -821,7 +843,10 @@ class DurativeActionRobustnessVerifier(RobustnessVerifier):
                     a_fend.add_condition(StartTiming(), Not(waiting(self.get_agent_obj(agent))))
                     a_fend.add_effect(EndTiming(), failure, True)
                     for c in c_overall:
-                        a_fend.add_increase_effect(StartTiming(), self.fsub.substitute(c, inv_count_map, agent), 1)
+                        if self.replace_inv_count_with_bool:
+                            a_fend.add_effect(StartTiming(), self.fsub.substitute(c, inv_count_map, agent), True)
+                        else:
+                            a_fend.add_increase_effect(StartTiming(), self.fsub.substitute(c, inv_count_map, agent), 1)
                     new_problem.add_action(a_fend)
                     new_to_old[a_fend] = action
 
@@ -832,7 +857,10 @@ class DurativeActionRobustnessVerifier(RobustnessVerifier):
                         a_finvstart.add_condition(StartTiming(), Not(waiting(self.get_agent_obj(agent))))
                         for c in c_start:
                             a_finvstart.add_condition(StartTiming(), self.fsub.substitute(c, self.global_fluent_map, agent))
-                        a_finvstart.add_condition(StartTiming(), GT(self.fsub.substitute(effect.fluent, inv_count_map, agent), 0))
+                        if self.replace_inv_count_with_bool:
+                            a_finvstart.add_condition(StartTiming(), self.fsub.substitute(effect.fluent, inv_count_map, agent))
+                        else:
+                            a_finvstart.add_condition(StartTiming(), GT(self.fsub.substitute(effect.fluent, inv_count_map, agent), 0))
                         a_finvstart.add_effect(StartTiming(), failure, True)
                         new_problem.add_action(a_finvstart)
                         new_to_old[a_finvstart] = action
@@ -849,12 +877,18 @@ class DurativeActionRobustnessVerifier(RobustnessVerifier):
                                                     self.fsub.substitute(c, self.global_fluent_map, agent))
                         for c in c_end:
                             a_finvend.add_condition(EndTiming(), self.fsub.substitute(c, self.global_fluent_map, agent))
-                        a_finvend.add_condition(EndTiming(), GT(self.fsub.substitute(effect.fluent, inv_count_map, agent), 0))
+                        if self.replace_inv_count_with_bool:
+                            a_finvend.add_condition(EndTiming(), self.fsub.substitute(effect.fluent, inv_count_map, agent))
+                        else:
+                            a_finvend.add_condition(EndTiming(), GT(self.fsub.substitute(effect.fluent, inv_count_map, agent), 0))
                         
                         for seffect in action.effects.get(StartTiming(), []):
                             a_finvend.add_effect(StartTiming(), self.fsub.substitute(seffect.fluent, self.global_fluent_map, agent), seffect.value)
                             if seffect.value.is_false():
-                                a_finvstart.add_condition(StartTiming(), Equals(self.fsub.substitute(seffect.fluent, inv_count_map, agent), 0))
+                                if self.replace_inv_count_with_bool:
+                                    a_finvstart.add_condition(StartTiming(), Not(self.fsub.substitute(seffect.fluent, inv_count_map, agent)))
+                                else:
+                                    a_finvstart.add_condition(StartTiming(), Equals(self.fsub.substitute(seffect.fluent, inv_count_map, agent), 0))
                             if seffect.value.is_true():
                                 for ag in problem.agents:
                                     a_finvend.add_condition(StartTiming(),
@@ -869,7 +903,10 @@ class DurativeActionRobustnessVerifier(RobustnessVerifier):
                         for interval, condition in action.conditions.items():
                             if interval.lower != interval.upper:
                                 for fact in condition:
-                                    a_finvend.add_increase_effect(StartTiming(), self.fsub.substitute(fact, inv_count_map, agent), 1)                                    
+                                    if self.replace_inv_count_with_bool:
+                                        a_finvend.add_effect(StartTiming(), self.fsub.substitute(fact, inv_count_map, agent), True)                                    
+                                    else:
+                                        a_finvend.add_increase_effect(StartTiming(), self.fsub.substitute(fact, inv_count_map, agent), 1)                                    
                         new_problem.add_action(a_finvend)
                         new_to_old[a_finvend] = action
                 
