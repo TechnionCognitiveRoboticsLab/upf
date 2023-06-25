@@ -78,12 +78,12 @@ class SocialLawRobustnessChecker(engines.engine.Engine, mixins.OneshotPlannerMix
     '''social law robustness checker class:
     This class checks if a given MultiAgentProblemWithWaitfor is robust or not.
     '''
-    def __init__(self, planner_name : str = None, robustness_verifier_name : str = None, save_pddl = False):
+    def __init__(self, planner_name : str = None, robustness_verifier_name : str = None, save_pddl_prefix = None):
         engines.engine.Engine.__init__(self)
         mixins.OneshotPlannerMixin.__init__(self)
         self._planner_name = planner_name
         self._robustness_verifier_name = robustness_verifier_name
-        self._save_pddl = save_pddl
+        self._save_pddl_prefix = save_pddl_prefix
         
 
     @property
@@ -120,10 +120,10 @@ class SocialLawRobustnessChecker(engines.engine.Engine, mixins.OneshotPlannerMix
             sap = SingleAgentProjection(agent)        
             result = sap.compile(problem)
 
-            if self._save_pddl:
+            if self._save_pddl_prefix is not None:
                 w = PDDLWriter(result.problem)
-                w.write_domain("sap__" + agent.name + "__domain.pddl")
-                w.write_problem("sap__" + agent.name + "__problem.pddl")            
+                w.write_domain(self._save_pddl_prefix + "__sap__" + agent.name + "__domain.pddl")
+                w.write_problem(self._save_pddl_prefix + "__sap__" + agent.name + "__problem.pddl")            
 
             with OneshotPlanner(name=self._planner_name, problem_kind=result.problem.kind) as planner:
                 presult = planner.solve(result.problem)
@@ -138,13 +138,13 @@ class SocialLawRobustnessChecker(engines.engine.Engine, mixins.OneshotPlannerMix
             compilation_kind=CompilationKind.MA_SL_ROBUSTNESS_VERIFICATION)
         rbv_result = rbv.compile(problem)
 
-        if self._save_pddl:
+        if self._save_pddl_prefix is not None:
             w = PDDLWriter(rbv_result.problem)
-            w.write_domain(rbv.name + "__domain.pddl")
-            w.write_problem(rbv.name + "__problem.pddl")            
+            w.write_domain(self._save_pddl_prefix + "__" + rbv.name + "__domain.pddl")
+            w.write_problem(self._save_pddl_prefix + "__" + rbv.name + "__problem.pddl")            
         
         with OneshotPlanner(name=self._planner_name, problem_kind=rbv_result.problem.kind) as planner:
-            result = planner.solve(rbv_result.problem)
+            result = planner.solve(rbv_result.problem)            
             if result.status in unified_planning.engines.results.POSITIVE_OUTCOMES:                
                 for action_occurence in result.plan.actions:
                     parts = action_occurence.action.name.split("_")

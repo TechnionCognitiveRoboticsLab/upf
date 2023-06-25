@@ -137,7 +137,7 @@ class TestProblem(TestCase):
         slrc = SocialLawRobustnessChecker(
             planner_name="fast-downward",
             robustness_verifier_name="SimpleInstantaneousActionRobustnessVerifier",
-            save_pddl=True
+            save_pddl_prefix="synth"
             )
         l = SocialLaw()
         l.disallow_action("a1", "move", ("nw","ne"))
@@ -251,7 +251,7 @@ class TestProblem(TestCase):
                 with OneshotPlanner(problem_kind=cresult.problem.kind) as planner:
                     presult = planner.solve(cresult.problem)
                     self.assertIn(presult.status, POSITIVE_OUTCOMES, t.name)
-
+ 
         
     def test_all_cases_durative(self):
         for t in self.test_cases:
@@ -260,7 +260,7 @@ class TestProblem(TestCase):
                 f.write(str(problem.waitfor))
 
             slrc = SocialLawRobustnessChecker(                                
-                save_pddl=True,                
+                save_pddl_prefix=t.name,                
                 )
             self.assertEqual(slrc.is_robust(problem).status, t.expected_outcome, t.name)
 
