@@ -42,6 +42,7 @@ from unified_planning.model.multi_agent.ma_centralizer import MultiAgentProblemC
 from functools import partial
 from unified_planning.engines.compilers.utils import replace_action
 import unified_planning.model.problem_kind
+import unified_planning.social_law
 
 
 credits = Credits('Social Law Robustness Checker',
@@ -122,8 +123,8 @@ class SocialLawRobustnessChecker(engines.engine.Engine, mixins.OneshotPlannerMix
 
             if self._save_pddl_prefix is not None:
                 w = PDDLWriter(result.problem)
-                w.write_domain(self._save_pddl_prefix + "__sap__" + agent.name + "__domain.pddl")
-                w.write_problem(self._save_pddl_prefix + "__sap__" + agent.name + "__problem.pddl")            
+                w.write_domain(unified_planning.social_law.name_separator.join([self._save_pddl_prefix, "sap",  agent.name,  "domain.pddl"]))
+                w.write_problem(unified_planning.social_law.name_separator.join([self._save_pddl_prefix, "sap",  agent.name,  "problem.pddl"]))
 
             with OneshotPlanner(name=self._planner_name, problem_kind=result.problem.kind) as planner:
                 presult = planner.solve(result.problem)
@@ -140,14 +141,14 @@ class SocialLawRobustnessChecker(engines.engine.Engine, mixins.OneshotPlannerMix
 
         if self._save_pddl_prefix is not None:
             w = PDDLWriter(rbv_result.problem)
-            w.write_domain(self._save_pddl_prefix + "__" + rbv.name + "__domain.pddl")
-            w.write_problem(self._save_pddl_prefix + "__" + rbv.name + "__problem.pddl")            
+            w.write_domain(unified_planning.social_law.name_separator.join([self._save_pddl_prefix, rbv.name, "domain.pddl"]))
+            w.write_problem(unified_planning.social_law.name_separator.join([self._save_pddl_prefix, rbv.name, "problem.pddl"]))            
         
         with OneshotPlanner(name=self._planner_name, problem_kind=rbv_result.problem.kind) as planner:
             result = planner.solve(rbv_result.problem)            
             if result.status in unified_planning.engines.results.POSITIVE_OUTCOMES:                
                 for action_occurence in result.plan.actions:
-                    parts = action_occurence.action.name.split("_")
+                    parts = action_occurence.action.name.split(unified_planning.social_law.name_separator)
                     if parts[0][0] == "f":
                         status = SocialLawRobustnessStatus.NON_ROBUST_MULTI_AGENT_FAIL
                         break
@@ -214,7 +215,7 @@ class SocialLawRobustnessChecker(engines.engine.Engine, mixins.OneshotPlannerMix
                 if current_step[agent] < len(plans[agent].actions):
                     active_agents_next.append(agent)
                     ai = plans[agent].actions[current_step[agent]]
-                    action = cresult.problem.action(agent.name + "__" + ai.action.name)
+                    action = cresult.problem.action(unified_planning.social_law.name_separator.join([agent.name, ai.action.name]))
                     assert isinstance(action, unified_planning.model.InstantaneousAction)
 
                     applicable = simulator.is_applicable(current_state, action, ai.actual_parameters)

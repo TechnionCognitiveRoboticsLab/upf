@@ -40,6 +40,7 @@ import unified_planning.model.walkers as walkers
 from unified_planning.model.walkers.identitydag import IdentityDagWalker
 from unified_planning.environment import get_environment
 import unified_planning.model.problem_kind
+import unified_planning.social_law
 
 
 
@@ -275,7 +276,8 @@ class InstantaneousActionRobustnessVerifier(RobustnessVerifier):
         for p in action.parameters:
             d[p.name] = p.type
 
-        new_action = InstantaneousAction(prefix + "_" + agent.name + "_" + action.name, _parameters=d)        
+        new_action = InstantaneousAction(
+            unified_planning.social_law.name_separator.join([prefix, agent.name, action.name]), _parameters=d)        
         for fact in self.get_action_preconditions(problem, agent, action, True, True):            
             new_action.add_precondition(self.fsub.substitute(fact, self.local_fluent_map[agent], agent))                
         for effect in action.effects:
@@ -324,7 +326,7 @@ class SimpleInstantaneousActionRobustnessVerifier(InstantaneousActionRobustnessV
 
         # Add actions
         for agent in problem.agents:
-            end_s = InstantaneousAction("end_s_" + agent.name)
+            end_s = InstantaneousAction(unified_planning.social_law.name_separator.join(["end_s", agent.name]))
             end_s.add_precondition(Not(fin(self.get_agent_obj(agent))))            
             for goal in self.get_agent_goal(problem, agent):
                 end_s.add_precondition(self.fsub.substitute(goal, self.global_fluent_map, agent))
@@ -335,7 +337,7 @@ class SimpleInstantaneousActionRobustnessVerifier(InstantaneousActionRobustnessV
             new_to_old[end_s] = None
 
             for i, goal in enumerate(self.get_agent_goal(problem, agent)):
-                end_f = InstantaneousAction("end_f_" + agent.name + "_" + str(i))
+                end_f = InstantaneousAction(unified_planning.social_law.name_separator.join(["end_f,", agent.name, str(i)]))
                 end_f.add_precondition(Not(fin(self.get_agent_obj(agent))))
                 end_f.add_precondition(Not(self.fsub.substitute(goal, self.global_fluent_map, agent)))
                 for g in self.get_agent_goal(problem, agent):                    
@@ -646,7 +648,7 @@ class DurativeActionRobustnessVerifier(RobustnessVerifier):
         for p in action.parameters:
             d[p.name] = p.type
 
-        new_action = DurativeAction(prefix + "_" + agent.name + "_" + action.name, _parameters=d)     
+        new_action = DurativeAction(unified_planning.social_law.name_separator.join([prefix, agent.name, action.name]), _parameters=d)
         new_action.set_duration_constraint(action.duration)
         #new_action.add_condition(ClosedTimeInterval(StartTiming(), EndTiming()), self.act_pred)   
 
@@ -697,7 +699,7 @@ class DurativeActionRobustnessVerifier(RobustnessVerifier):
 
         for agent in problem.agents:
             # Create end_s_i action
-            end_s_action = DurativeAction("end_s_" + agent.name)
+            end_s_action = DurativeAction(unified_planning.social_law.name_separator.join(["end_s",  agent.name]))
             end_s_action.set_fixed_duration(0.01)
             end_s_action.add_condition(StartTiming(), Not(fin(self.get_agent_obj(agent))))
             for g in self.get_agent_goal(problem, agent):
@@ -710,7 +712,7 @@ class DurativeActionRobustnessVerifier(RobustnessVerifier):
 
             # Create end_f_i action
             for j, gf in enumerate(self.get_agent_goal(problem, agent)):
-                end_f_action = DurativeAction("end_f_" + agent.name + "_" + str(j))
+                end_f_action = DurativeAction(unified_planning.social_law.name_separator.join(["end_f", agent.name, str(j)]))
                 end_f_action.set_fixed_duration(0.01)
                 end_f_action.add_condition(StartTiming(), Not(self.fsub.substitute(gf, self.global_fluent_map, agent)))
                 end_f_action.add_condition(StartTiming(), Not(fin(self.get_agent_obj(agent))))

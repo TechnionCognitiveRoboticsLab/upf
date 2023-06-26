@@ -14,3 +14,4 @@
 
 from unified_planning.model.multi_agent import *
 
+name_separator = "__"
