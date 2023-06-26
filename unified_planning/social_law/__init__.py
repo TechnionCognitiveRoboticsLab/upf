@@ -14,4 +14,5 @@
 
 from unified_planning.model.multi_agent import *
 
+# This is a hack, since getting the (agent, original action) from the solution of the robustness verification compilation is difficult
 name_separator = "__"
